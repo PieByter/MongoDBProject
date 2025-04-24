@@ -156,7 +156,7 @@ app.post("/register", upload.single("profileImage"), async (req, res) => {
 
     const baseUrl = `${req.protocol}://${req.get("host")}`; // misal http://localhost:3000
     if (baseUrl.includes("localhost")) {
-      baseUrl = "http://192.168.46.4:3000";
+      baseUrl = "http://192.168.70.129:3000";
     }
     const profileImageUrl = req.file
       ? `${baseUrl}/uploads/${req.file.filename}`
@@ -220,6 +220,10 @@ app.post("/login", async (req, res) => {
     console.error("Login error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
+});
+
+app.get("/validate-token", authenticateToken, (req, res) => {
+  res.status(200).json({ message: "Token is valid" });
 });
 
 // Endpoint untuk mengambil semua pengguna
@@ -310,7 +314,7 @@ app.put(
         // Gabungkan base URL dengan path file
         const baseUrl = `${req.protocol}://${req.get("host")}`;
         if (baseUrl.includes("localhost")) {
-          baseUrl = "http://192.168.46.4:3000";
+          baseUrl = "http://192.168.70.129:3000";
         }
         user.profileImage = `${baseUrl}/uploads/${req.file.filename}`;
       }
@@ -419,7 +423,7 @@ app.post(
       // Gabungkan base URL dengan path file
       let baseUrl = `${req.protocol}://${req.get("host")}`;
       if (baseUrl.includes("localhost")) {
-        baseUrl = "http://192.168.46.4:3000";
+        baseUrl = "http://192.168.70.129:3000";
       }
       const fullImageUrl = req.file
         ? `${baseUrl}/uploads/${req.file.filename}`
@@ -456,7 +460,7 @@ app.get("/reports", authenticateToken, async (req, res) => {
   try {
     let baseUrl = `${req.protocol}://${req.get("host")}`;
     if (baseUrl.includes("localhost")) {
-      baseUrl = "http://192.168.46.4:3000";
+      baseUrl = "http://192.168.70.129:3000";
     }
 
     const reports = await Report.find();
