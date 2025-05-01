@@ -154,7 +154,7 @@ app.post("/register", upload.single("profileImage"), async (req, res) => {
       return res.status(400).json({ error: "Email already registered" });
     }
 
-    const baseUrl = `${req.protocol}://${req.get("host")}`; // misal http://localhost:3000
+    let baseUrl = `${req.protocol}://${req.get("host")}`; // misal http://localhost:3000
     if (baseUrl.includes("localhost")) {
       baseUrl = "http://192.168.1.7:3000";
     }
@@ -220,10 +220,6 @@ app.post("/login", async (req, res) => {
     console.error("Login error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
-});
-
-app.get("/validate-token", authenticateToken, (req, res) => {
-  res.status(200).json({ message: "Token is valid" });
 });
 
 // Endpoint untuk mengambil semua pengguna
@@ -339,7 +335,7 @@ app.put(
       if (username) user.username = username;
       if (req.file) {
         // Gabungkan base URL dengan path file
-        const baseUrl = `${req.protocol}://${req.get("host")}`;
+        let baseUrl = `${req.protocol}://${req.get("host")}`;
         user.profileImage = `${baseUrl}/uploads/${req.file.filename}`;
       }
 
@@ -538,7 +534,7 @@ app.put(
       if (lat && lng)
         report.location = { lat: parseFloat(lat), lng: parseFloat(lng) };
       if (req.file) {
-        const baseUrl = `${req.protocol}://${req.get("host")}`;
+        let baseUrl = `${req.protocol}://${req.get("host")}`;
         report.imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
       }
 
