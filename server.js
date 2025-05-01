@@ -156,7 +156,7 @@ app.post("/register", upload.single("profileImage"), async (req, res) => {
 
     const baseUrl = `${req.protocol}://${req.get("host")}`; // misal http://localhost:3000
     if (baseUrl.includes("localhost")) {
-      baseUrl = "http://192.168.70.129:3000";
+      baseUrl = "http://192.168.1.7:3000";
     }
     const profileImageUrl = req.file
       ? `${baseUrl}/uploads/${req.file.filename}`
@@ -294,7 +294,7 @@ app.put(
   upload.single("profileImage"), // Middleware untuk upload gambar
   async (req, res) => {
     try {
-      const { username, password } = req.body; // Data yang akan diperbarui
+      const { username, password, currentPassword } = req.body; // Tambahkan currentPassword
 
       if (!username && !password && !req.file) {
         return res.status(400).json({ error: "No data to update" });
@@ -307,15 +307,39 @@ app.put(
         return res.status(404).json({ error: "User not found" });
       }
 
-      // Update data pengguna
+      // Jika ingin mengganti password, pastikan currentPassword diberikan dan valid
+      if (password) {
+        if (!currentPassword) {
+          return res
+            .status(400)
+            .json({ error: "Current password is required to change password" });
+        }
+
+        // Verifikasi current password
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+          return res
+            .status(401)
+            .json({ error: "Current password is incorrect" });
+        }
+
+        // Cek apakah password baru sama dengan password lama
+        const isSamePassword = await bcrypt.compare(password, user.password);
+        if (isSamePassword) {
+          return res.status(400).json({
+            error: "New password cannot be the same as the current password",
+          });
+        }
+
+        // Hash password baru
+        user.password = await bcrypt.hash(password, 10);
+      }
+
+      // Update data pengguna lainnya
       if (username) user.username = username;
-      if (password) user.password = await bcrypt.hash(password, 10); // Meng-hash password baru
       if (req.file) {
         // Gabungkan base URL dengan path file
         const baseUrl = `${req.protocol}://${req.get("host")}`;
-        if (baseUrl.includes("localhost")) {
-          baseUrl = "http://192.168.70.129:3000";
-        }
         user.profileImage = `${baseUrl}/uploads/${req.file.filename}`;
       }
 
@@ -327,7 +351,6 @@ app.put(
         user: {
           id: user._id,
           username: user.username,
-          password: !!password,
           email: user.email,
           profileImage: user.profileImage,
           createdAt: user.createdAt,
@@ -423,7 +446,7 @@ app.post(
       // Gabungkan base URL dengan path file
       let baseUrl = `${req.protocol}://${req.get("host")}`;
       if (baseUrl.includes("localhost")) {
-        baseUrl = "http://192.168.70.129:3000";
+        baseUrl = "http://192.168.1.7:3000";
       }
       const fullImageUrl = req.file
         ? `${baseUrl}/uploads/${req.file.filename}`
@@ -460,7 +483,7 @@ app.get("/reports", authenticateToken, async (req, res) => {
   try {
     let baseUrl = `${req.protocol}://${req.get("host")}`;
     if (baseUrl.includes("localhost")) {
-      baseUrl = "http://192.168.70.129:3000";
+      baseUrl = "http://192.168.1.7:3000";
     }
 
     const reports = await Report.find();
