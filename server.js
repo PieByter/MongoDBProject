@@ -154,10 +154,11 @@ app.post("/register", upload.single("profileImage"), async (req, res) => {
       return res.status(400).json({ error: "Email already registered" });
     }
 
-    let baseUrl = `${req.protocol}://${req.get("host")}`; // misal http://localhost:3000
-    if (baseUrl.includes("localhost")) {
-      baseUrl = "http://192.168.1.7:3000";
-    }
+    // let baseUrl = `${req.protocol}://${req.get("host")}`; // misal http://localhost:3000
+    // if (baseUrl.includes("localhost")) {
+    //   baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app ";
+    // }
+    const baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app";
     const profileImageUrl = req.file
       ? `${baseUrl}/uploads/${req.file.filename}`
       : null;
@@ -440,10 +441,11 @@ app.post(
       const severity = classifySeverity(parsedDiameter, parsedDepth);
 
       // Gabungkan base URL dengan path file
-      let baseUrl = `${req.protocol}://${req.get("host")}`;
-      if (baseUrl.includes("localhost")) {
-        baseUrl = "http://192.168.1.7:3000";
-      }
+      // let baseUrl = `${req.protocol}://${req.get("host")}`;
+      // if (baseUrl.includes("localhost")) {
+      //   baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app ";
+      // }
+      const baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app";
       const fullImageUrl = req.file
         ? `${baseUrl}/uploads/${req.file.filename}`
         : null;
@@ -477,10 +479,11 @@ app.post(
 // Endpoint untuk mengambil semua report (tidak memerlukan autentikasi admin)
 app.get("/reports", authenticateToken, async (req, res) => {
   try {
-    let baseUrl = `${req.protocol}://${req.get("host")}`;
-    if (baseUrl.includes("localhost")) {
-      baseUrl = "http://192.168.1.7:3000";
-    }
+    // let baseUrl = `${req.protocol}://${req.get("host")}`;
+    // if (baseUrl.includes("localhost")) {
+    //   baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app ";
+    // }
+    const baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app";
 
     const reports = await Report.find();
 
