@@ -10,7 +10,6 @@ const fs = require("fs");
 const { create } = require("./models/Report");
 const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const multer = require("multer");
 
 const app = express();
 app.use(cors());
