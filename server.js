@@ -354,10 +354,29 @@ app.put(
 
       // Update data pengguna lainnya
       if (username) user.username = username;
+      // if (req.file) {
+      //   // // Gabungkan base URL dengan path file
+      //   // let baseUrl = `${req.protocol}://${req.get("host")}`;
+      //   // user.profileImage = `${baseUrl}/uploads/${req.file.filename}`;
+      //   user.profileImage = req.file.path;
+      // }
+
       if (req.file) {
-        // // Gabungkan base URL dengan path file
-        // let baseUrl = `${req.protocol}://${req.get("host")}`;
-        // user.profileImage = `${baseUrl}/uploads/${req.file.filename}`;
+        // Hapus gambar lama dari Cloudinary jika ada
+        if (user.profileImage) {
+          // Ekstrak public_id dari URL Cloudinary
+          // Contoh URL: https://res.cloudinary.com/<cloud_name>/image/upload/v1234567890/uploads/abc123.jpg
+          const regex = /\/uploads\/([^\.\/]+)\./;
+          const match = user.profileImage.match(regex);
+          if (match && match[1]) {
+            const publicId = `uploads/${match[1]}`;
+            try {
+              await cloudinary.uploader.destroy(publicId);
+            } catch (err) {
+              console.error("Error deleting old image from Cloudinary:", err);
+            }
+          }
+        }
         user.profileImage = req.file.path;
       }
 
@@ -559,9 +578,29 @@ app.put(
       if (holesCount) report.holesCount = parseInt(holesCount, 10);
       if (lat && lng)
         report.location = { lat: parseFloat(lat), lng: parseFloat(lng) };
+
+      // if (req.file) {
+      //   // let baseUrl = `${req.protocol}://${req.get("host")}`;
+      //   // report.imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
+      //   report.imageUrl = req.file.path;
+      // }
+
       if (req.file) {
-        // let baseUrl = `${req.protocol}://${req.get("host")}`;
-        // report.imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
+        // Hapus gambar lama dari Cloudinary jika ada
+        if (report.imageUrl) {
+          // Ekstrak public_id dari URL Cloudinary
+          // Contoh URL: https://res.cloudinary.com/<cloud_name>/image/upload/v1234567890/uploads/abc123.jpg
+          const regex = /\/uploads\/([^\.\/]+)\./;
+          const match = report.imageUrl.match(regex);
+          if (match && match[1]) {
+            const publicId = `uploads/${match[1]}`;
+            try {
+              await cloudinary.uploader.destroy(publicId);
+            } catch (err) {
+              console.error("Error deleting old image from Cloudinary:", err);
+            }
+          }
+        }
         report.imageUrl = req.file.path;
       }
 
