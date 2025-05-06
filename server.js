@@ -176,10 +176,13 @@ app.post("/register", upload.single("profileImage"), async (req, res) => {
     // if (baseUrl.includes("localhost")) {
     //   baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app ";
     // }
-    const baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app";
-    const profileImageUrl = req.file
-      ? `${baseUrl}/uploads/${req.file.filename}`
-      : null;
+
+    // const baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app";
+    // const profileImageUrl = req.file
+    //   ? `${baseUrl}/uploads/${req.file.filename}`
+    //   : null;
+
+    const profileImageUrl = req.file ? req.file.path : null;
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -464,10 +467,12 @@ app.post(
       // if (baseUrl.includes("localhost")) {
       //   baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app ";
       // }
-      const baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app";
-      const fullImageUrl = req.file
-        ? `${baseUrl}/uploads/${req.file.filename}`
-        : null;
+      // const baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app";
+      // const fullImageUrl = req.file
+      //   ? `${baseUrl}/uploads/${req.file.filename}`
+      //   : null;
+
+      const fullImageUrl = req.file ? req.file.path : null; // URL Cloudinary
 
       // Buat report baru
       const report = new Report({
@@ -612,8 +617,8 @@ app.delete("/reports/:id", authenticateToken, async (req, res) => {
       return res.status(403).json({ error: "Access denied" });
     }
 
-    // Opsional: Hapus gambar dari file system
-    if (fs.existsSync(report.imageUrl)) fs.unlinkSync(report.imageUrl);
+    // // Opsional: Hapus gambar dari file system
+    // if (fs.existsSync(report.imageUrl)) fs.unlinkSync(report.imageUrl);
 
     await report.deleteOne();
     res.json({ message: "Report deleted successfully" });
