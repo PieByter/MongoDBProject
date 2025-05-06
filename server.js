@@ -8,18 +8,36 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const { create } = require("./models/Report");
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const multer = require("multer");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static("uploads"));
+// app.use("/uploads", express.static("uploads"));
 
-// Pastikan folder uploads tersedia
-const uploadDir = path.join(__dirname, "uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
-}
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "uploads",
+    allowed_formats: ["jpg", "png", "jpeg"],
+  },
+});
+const upload = multer({ storage });
+
+// // Pastikan folder uploads tersedia
+// const uploadDir = path.join(__dirname, "uploads");
+// if (!fs.existsSync(uploadDir)) {
+//   fs.mkdirSync(uploadDir);
+// }
 
 // Connect ke MongoDB lokal
 // mongoose
@@ -124,17 +142,17 @@ function classifySeverity(diameter, depth) {
   return matrix[key] || "Tidak diketahui"; // fallback
 }
 
-// Setup multer untuk upload gambar
-const storage = multer.diskStorage({
-  destination: "./uploads/",
-  filename: (req, file, cb) => {
-    cb(
-      null,
-      file.fieldname + "-" + Date.now() + path.extname(file.originalname)
-    );
-  },
-});
-const upload = multer({ storage });
+// // Setup multer untuk upload gambar
+// const storage = multer.diskStorage({
+//   destination: "./uploads/",
+//   filename: (req, file, cb) => {
+//     cb(
+//       null,
+//       file.fieldname + "-" + Date.now() + path.extname(file.originalname)
+//     );
+//   },
+// });
+// const upload = multer({ storage });
 
 // Register Endpoint
 app.post("/register", upload.single("profileImage"), async (req, res) => {
@@ -335,9 +353,10 @@ app.put(
       // Update data pengguna lainnya
       if (username) user.username = username;
       if (req.file) {
-        // Gabungkan base URL dengan path file
-        let baseUrl = `${req.protocol}://${req.get("host")}`;
-        user.profileImage = `${baseUrl}/uploads/${req.file.filename}`;
+        // // Gabungkan base URL dengan path file
+        // let baseUrl = `${req.protocol}://${req.get("host")}`;
+        // user.profileImage = `${baseUrl}/uploads/${req.file.filename}`;
+        user.profileImage = req.file.path;
       }
 
       // Menyimpan perubahan ke database
@@ -537,8 +556,9 @@ app.put(
       if (lat && lng)
         report.location = { lat: parseFloat(lat), lng: parseFloat(lng) };
       if (req.file) {
-        let baseUrl = `${req.protocol}://${req.get("host")}`;
-        report.imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
+        // let baseUrl = `${req.protocol}://${req.get("host")}`;
+        // report.imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
+        report.imageUrl = req.file.path;
       }
 
       // Perbarui diameter dan depth jika diberikan, serta hitung severity
