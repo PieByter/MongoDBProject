@@ -369,6 +369,13 @@ app.put(
 
       await user.save();
 
+      if (usernameChanged) {
+        await Report.updateMany(
+          { userId: user._id },
+          { $set: { username: user.username } }
+        );
+      }
+
       res.json({
         message: "Account updated successfully",
         user: {
