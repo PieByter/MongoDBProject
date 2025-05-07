@@ -454,7 +454,15 @@ app.post(
   upload.single("imageUrl"),
   async (req, res) => {
     try {
-      const { titles, lat, lng, diameter, depth, holesCount } = req.body;
+      const {
+        titles,
+        lat,
+        lng,
+        diameter,
+        depth,
+        holesCount,
+        segmentationPercentage,
+      } = req.body;
 
       if (!titles || typeof titles !== "string") {
         return res.status(400).json({ error: "Invalid or missing titles" });
@@ -555,7 +563,15 @@ app.put(
   async (req, res) => {
     try {
       const { id } = req.params;
-      const { titles, lat, lng, holesCount, diameter, depth } = req.body;
+      const {
+        titles,
+        lat,
+        lng,
+        holesCount,
+        diameter,
+        depth,
+        segmentationPercentage,
+      } = req.body;
 
       const report = await Report.findById(id);
       if (!report) return res.status(404).json({ error: "Report not found" });
