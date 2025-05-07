@@ -10,6 +10,7 @@ const fs = require("fs");
 const { create } = require("./models/Report");
 const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const multer = require("multer");
 
 const app = express();
 app.use(cors());
@@ -17,26 +18,25 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // app.use("/uploads", express.static("uploads"));
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+// cloudinary.config({
+//   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+//   api_key: process.env.CLOUDINARY_API_KEY,
+//   api_secret: process.env.CLOUDINARY_API_SECRET,
+// });
 
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: "uploads",
-    allowed_formats: ["jpg", "png", "jpeg"],
-  },
-});
-const upload = multer({ storage });
+// const storage = new CloudinaryStorage({
+//   cloudinary: cloudinary,
+//   params: {
+//     folder: "uploads",
+//     allowed_formats: ["jpg", "png", "jpeg"],
+//   },
+// });
+// const upload = multer({ storage });
 
-// // Pastikan folder uploads tersedia
-// const uploadDir = path.join(__dirname, "uploads");
-// if (!fs.existsSync(uploadDir)) {
-//   fs.mkdirSync(uploadDir);
-// }
+const uploadDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
 
 // Connect ke MongoDB lokal
 // mongoose
@@ -98,12 +98,6 @@ const ReportSchema = new mongoose.Schema({
     min: 0,
   },
   severity: String,
-  segmentationPercentage: {
-    type: Number,
-    min: 0,
-    max: 100,
-    default: 0,
-  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -130,6 +124,7 @@ function classifySeverity(diameter, depth) {
   else if (diameter >= 200 && diameter < 450) col = 2;
   else if (diameter >= 450) col = 3;
 
+  // Matriks keparahan
   const matrix = {
     "1,1": "Rendah",
     "1,2": "Rendah",
@@ -143,20 +138,19 @@ function classifySeverity(diameter, depth) {
   };
 
   const key = `${row},${col}`;
-  return matrix[key] || "Tidak diketahui";
+  return matrix[key] || "Tidak diketahui"; // fallback
 }
 
-// // Setup multer untuk upload gambar
-// const storage = multer.diskStorage({
-//   destination: "./uploads/",
-//   filename: (req, file, cb) => {
-//     cb(
-//       null,
-//       file.fieldname + "-" + Date.now() + path.extname(file.originalname)
-//     );
-//   },
-// });
-// const upload = multer({ storage });
+const storage = multer.diskStorage({
+  destination: "./uploads/",
+  filename: (req, file, cb) => {
+    cb(
+      null,
+      file.fieldname + "-" + Date.now() + path.extname(file.originalname)
+    );
+  },
+});
+const upload = multer({ storage });
 
 app.post("/register", upload.single("profileImage"), async (req, res) => {
   try {
@@ -180,12 +174,10 @@ app.post("/register", upload.single("profileImage"), async (req, res) => {
     //   baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app ";
     // }
 
-    // const baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app";
-    // const profileImageUrl = req.file
-    //   ? `${baseUrl}/uploads/${req.file.filename}`
-    //   : null;
-
-    const profileImageUrl = req.file ? req.file.path : null;
+    const baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app";
+    const profileImageUrl = req.file
+      ? `${baseUrl}/uploads/${req.file.filename}`
+      : null;
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -310,7 +302,6 @@ app.put(
       if (!username && !password && !req.file) {
         return res.status(400).json({ error: "No data to update" });
       }
-
       const user = await User.findById(req.user.userId);
 
       if (!user) {
@@ -342,29 +333,23 @@ app.put(
       }
 
       if (username) user.username = username;
-      // if (req.file) {
-      //   // // Gabungkan base URL dengan path file
-      //   // let baseUrl = `${req.protocol}://${req.get("host")}`;
-      //   // user.profileImage = `${baseUrl}/uploads/${req.file.filename}`;
-      //   user.profileImage = req.file.path;
-      // }
-
       if (req.file) {
         if (user.profileImage) {
-          // Ekstrak public_id dari URL Cloudinary
-          // Contoh URL: https://res.cloudinary.com/<cloud_name>/image/upload/v1234567890/uploads/abc123.jpg
-          const regex = /\/uploads\/([^\.\/]+)\./;
-          const match = user.profileImage.match(regex);
-          if (match && match[1]) {
-            const publicId = `uploads/${match[1]}`;
+          const oldPath = path.join(
+            __dirname,
+            "uploads",
+            path.basename(user.profileImage)
+          );
+          if (fs.existsSync(oldPath)) {
             try {
-              await cloudinary.uploader.destroy(publicId);
+              fs.unlinkSync(oldPath);
             } catch (err) {
-              console.error("Error deleting old image from Cloudinary:", err);
+              console.error("Error deleting old image:", err);
             }
           }
         }
-        user.profileImage = req.file.path;
+        let baseUrl = `${req.protocol}://${req.get("host")}`;
+        user.profileImage = `${baseUrl}/uploads/${req.file.filename}`;
       }
 
       await user.save();
@@ -413,7 +398,6 @@ app.put("/users/:id/role", authenticateToken, async (req, res) => {
   }
 });
 
-// Middleware untuk autentikasi token
 function authenticateToken(req, res, next) {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
@@ -457,10 +441,6 @@ app.post(
       const parsedDiameter = parseFloat(diameter);
       const parsedDepth = parseFloat(depth);
       const parsedHolesCount = parseInt(holesCount, 10);
-      const parsedSegmentation =
-        segmentationPercentage !== undefined
-          ? Math.max(0, Math.min(100, parseFloat(segmentationPercentage)))
-          : 0;
 
       // Hitung severity berdasarkan diameter dan depth
       const severity = classifySeverity(parsedDiameter, parsedDepth);
@@ -470,12 +450,11 @@ app.post(
       // if (baseUrl.includes("localhost")) {
       //   baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app ";
       // }
-      // const baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app";
-      // const fullImageUrl = req.file
-      //   ? `${baseUrl}/uploads/${req.file.filename}`
-      //   : null;
 
-      const fullImageUrl = req.file ? req.file.path : null;
+      const baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app";
+      const fullImageUrl = req.file
+        ? `${baseUrl}/uploads/${req.file.filename}`
+        : null;
 
       const report = new Report({
         id: req.body.id,
@@ -488,11 +467,9 @@ app.post(
         diameter: parsedDiameter,
         depth: parsedDepth,
         severity,
-        segmentationPercentage: parsedSegmentation,
         createdAt: req.body.createdAt || Date.now(),
         updatedAt: null,
       });
-
       await report.save();
       res.status(201).json({ message: "Report created", report });
     } catch (err) {
@@ -508,10 +485,11 @@ app.get("/reports", authenticateToken, async (req, res) => {
     // if (baseUrl.includes("localhost")) {
     //   baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app ";
     // }
-    // const baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app";
+    const baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app";
 
     const reports = await Report.find();
 
+    // Gabungkan base URL dengan path file untuk setiap report
     const reportsWithFullUrl = reports.map((report) => ({
       id: report._id,
       userId: report.userId,
@@ -523,7 +501,6 @@ app.get("/reports", authenticateToken, async (req, res) => {
       diameter: report.diameter,
       depth: report.depth,
       severity: report.severity,
-      segmentationPercentage: report.segmentationPercentage,
       createdAt: report.createdAt,
       updatedAt: report.updatedAt,
     }));
@@ -559,39 +536,29 @@ app.put(
       if (lat && lng)
         report.location = { lat: parseFloat(lat), lng: parseFloat(lng) };
 
-      // if (req.file) {
-      //   // let baseUrl = `${req.protocol}://${req.get("host")}`;
-      //   // report.imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
-      //   report.imageUrl = req.file.path;
-      // }
-
       if (req.file) {
         if (report.imageUrl) {
-          const regex = /\/uploads\/([^\.\/]+)\./;
-          const match = report.imageUrl.match(regex);
-          if (match && match[1]) {
-            const publicId = `uploads/${match[1]}`;
+          const oldPath = path.join(
+            __dirname,
+            "uploads",
+            path.basename(report.imageUrl)
+          );
+          if (fs.existsSync(oldPath)) {
             try {
-              await cloudinary.uploader.destroy(publicId);
+              fs.unlinkSync(oldPath);
             } catch (err) {
-              console.error("Error deleting old image from Cloudinary:", err);
+              console.error("Error deleting old report image:", err);
             }
           }
         }
-        report.imageUrl = req.file.path;
+        let baseUrl = `${req.protocol}://${req.get("host")}`;
+        report.imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
       }
 
       if (diameter || depth) {
         report.diameter = diameter ? parseFloat(diameter) : report.diameter;
         report.depth = depth ? parseFloat(depth) : report.depth;
         report.severity = classifySeverity(report.diameter, report.depth);
-      }
-
-      if (segmentationPercentage !== undefined) {
-        report.segmentationPercentage = Math.max(
-          0,
-          Math.min(100, parseFloat(segmentationPercentage))
-        );
       }
 
       report.updatedAt = Date.now();
@@ -610,7 +577,6 @@ app.put(
           diameter: report.diameter,
           depth: report.depth,
           severity: report.severity,
-          segmentationPercentage: report.segmentationPercentage,
           createdAt: report.createdAt,
           updatedAt: report.updatedAt,
         },
@@ -636,8 +602,8 @@ app.delete("/reports/:id", authenticateToken, async (req, res) => {
       return res.status(403).json({ error: "Access denied" });
     }
 
-    // // Opsional: Hapus gambar dari file system
-    // if (fs.existsSync(report.imageUrl)) fs.unlinkSync(report.imageUrl);
+    // Opsional: Hapus gambar dari file system
+    if (fs.existsSync(report.imageUrl)) fs.unlinkSync(report.imageUrl);
 
     await report.deleteOne();
     res.json({ message: "Report deleted successfully" });
@@ -668,7 +634,6 @@ app.get("/reports/:id", authenticateToken, async (req, res) => {
       diameter: report.diameter,
       depth: report.depth,
       severity: report.severity,
-      segmentationPercentage: report.segmentationPercentage,
       createdAt: report.createdAt,
       updatedAt: report.updatedAt,
     });
