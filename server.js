@@ -341,7 +341,13 @@ app.put(
         user.password = await bcrypt.hash(password, 10);
       }
 
-      if (username) user.username = username;
+      let usernameChanged = false;
+      if (username && username !== user.username) {
+        user.username = username;
+        usernameChanged = true;
+      }
+
+      // if (username) user.username = username;
       // if (req.file) {
       //   // // Gabungkan base URL dengan path file
       //   // let baseUrl = `${req.protocol}://${req.get("host")}`;
