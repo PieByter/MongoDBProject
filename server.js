@@ -286,6 +286,9 @@ app.put(
         return res.status(404).json({ error: "Pengguna tidak ditemukan!" });
       }
 
+      // Lacak perubahan apa saja yang terjadi
+      const changes = [];
+      
       if (password) {
         if (!currentPassword) {
           return res.status(400).json({
@@ -306,12 +309,14 @@ app.put(
         }
 
         user.password = await bcrypt.hash(password, 10);
+        changes.push("password");
       }
 
       let usernameChanged = false;
       if (username && username !== user.username) {
         user.username = username;
         usernameChanged = true;
+        changes.push("username");
       }
 
       if (req.file) {
@@ -331,6 +336,7 @@ app.put(
           }
         }
         user.profileImage = req.file.path;
+        changes.push("profileImage");
       }
 
       await user.save();
@@ -342,8 +348,24 @@ app.put(
         );
       }
 
+      // Generate pesan berdasarkan perubahan yang terjadi
+      let message = "";
+      if (changes.length === 1) {
+        // Hanya satu hal yang diubah
+        if (changes[0] === "password") {
+          message = "Password berhasil diperbaharui!";
+        } else if (changes[0] === "username") {
+          message = "Username berhasil diupdate!";
+        } else if (changes[0] === "profileImage") {
+          message = "Gambar profil berhasil diupdate!";
+        }
+      } else {
+        // Beberapa hal diubah
+        message = "Akun berhasil diperbarui!";
+      }
+
       res.json({
-        message: "Akun berhasil diperbarui!",
+        message,
         user: {
           id: user._id,
           username: user.username,
