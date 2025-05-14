@@ -15,6 +15,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// app.use("/uploads", express.static("uploads"));
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -31,11 +32,24 @@ const storage = new CloudinaryStorage({
 });
 const upload = multer({ storage });
 
+// // Pastikan folder uploads tersedia
+// const uploadDir = path.join(__dirname, "uploads");
+// if (!fs.existsSync(uploadDir)) {
+//   fs.mkdirSync(uploadDir);
+// }
+
+// Connect ke MongoDB lokal
+// mongoose
+//   .connect("mongodb://localhost:27017/user_auth")
+//   .then(() => console.log("Connected to MongoDB"))
+//   .catch((error) => console.error("Error connecting to MongoDB:", error));
+
 mongoose
   .connect(process.env.MONGODB_URI)
   .then(() => console.log("Connected to MongoDB Atlas"))
   .catch((error) => console.error("Error connecting to MongoDB Atlas:", error));
 
+// Schema dan model user
 const User = mongoose.model("User", {
   username: String,
   email: String,
@@ -102,6 +116,7 @@ const ReportSchema = new mongoose.Schema({
 
 delete mongoose.connection.models["Report"];
 const Report = mongoose.model("Report", ReportSchema);
+// const Report = mongoose.models.Report || mongoose.model("Report", ReportSchema);
 
 function classifySeverity(diameter, depth) {
   let row = 0;
@@ -131,24 +146,44 @@ function classifySeverity(diameter, depth) {
   return matrix[key] || "Tidak diketahui";
 }
 
+// // Setup multer untuk upload gambar
+// const storage = multer.diskStorage({
+//   destination: "./uploads/",
+//   filename: (req, file, cb) => {
+//     cb(
+//       null,
+//       file.fieldname + "-" + Date.now() + path.extname(file.originalname)
+//     );
+//   },
+// });
+// const upload = multer({ storage });
+
 app.post("/register", upload.single("profileImage"), async (req, res) => {
   try {
     const { username, email, password, confirmPassword } = req.body;
 
     if (!username || !email || !password || !confirmPassword) {
-      return res
-        .status(400)
-        .json({ error: "Harap isi semua kolom dengan lengkap!" });
+      return res.status(400).json({ error: "Please fill in all fields" });
     }
 
     if (password !== confirmPassword) {
-      return res.status(400).json({ error: "Kata sandi tidak sesuai!" });
+      return res.status(400).json({ error: "Passwords do not match" });
     }
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ error: "Email sudah terdaftar!" });
+      return res.status(400).json({ error: "Email already registered" });
     }
+
+    // let baseUrl = `${req.protocol}://${req.get("host")}`; // misal http://localhost:3000
+    // if (baseUrl.includes("localhost")) {
+    //   baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app ";
+    // }
+
+    // const baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app";
+    // const profileImageUrl = req.file
+    //   ? `${baseUrl}/uploads/${req.file.filename}`
+    //   : null;
 
     const profileImageUrl = req.file ? req.file.path : null;
 
@@ -165,10 +200,10 @@ app.post("/register", upload.single("profileImage"), async (req, res) => {
 
     await user.save();
 
-    res.status(201).json({ message: "Pengguna berhasil terdaftar!", user });
+    res.status(201).json({ message: "User registered successfully", user });
   } catch (error) {
-    console.error("Kesalahan registrasi: ", error);
-    res.status(500).json({ error: "Kesalahan server internal!" });
+    console.error("Registration error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -179,15 +214,13 @@ app.post("/login", async (req, res) => {
     if (!email || !password) {
       return res
         .status(400)
-        .json({ error: "Harap isikan email dan kata sandi!" });
+        .json({ error: "Please provide email and password" });
     }
 
     const user = await User.findOne({ email });
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res
-        .status(401)
-        .json({ error: "Email atau kata sandi tidak valid!" });
+      return res.status(401).json({ error: "Invalid credentials" });
     }
 
     const token = jwt.sign(
@@ -208,8 +241,8 @@ app.post("/login", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Kesalahan login:", error);
-    res.status(500).json({ error: "Kesalahan server internal!" });
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -218,8 +251,8 @@ app.get("/users", async (req, res) => {
     const users = await User.find();
     res.json(users);
   } catch (error) {
-    console.error("Kesalahan mengambil data pengguna:", error);
-    res.status(500).json({ error: "Kesalahan server internal!" });
+    console.error("Error fetching users:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -230,18 +263,18 @@ app.delete("/users/:id", async (req, res) => {
     const user = await User.findByIdAndDelete(id);
 
     if (!user) {
-      return res.status(404).json({ error: "Pengguna tidak ditemukan!" });
+      return res.status(404).json({ error: "User not found" });
     }
 
-    res.json({ message: "Akun berhasil dihapus!" });
+    res.json({ message: "User deleted successfully" });
   } catch (error) {
-    console.error("Kesalahan menghapus akun:", error);
-    res.status(500).json({ error: "Kesalahan server internal!" });
+    console.error("Error deleting user:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
 app.get("/validate-token", authenticateToken, (req, res) => {
-  res.status(200).json({ message: "Token valid!" });
+  res.status(200).json({ message: "Token is valid" });
 });
 
 app.get("/users/me", authenticateToken, async (req, res) => {
@@ -249,7 +282,7 @@ app.get("/users/me", authenticateToken, async (req, res) => {
     const user = await User.findById(req.user.userId);
 
     if (!user) {
-      return res.status(404).json({ error: "Pengguna tidak ditemukan!" });
+      return res.status(404).json({ error: "User not found" });
     }
 
     res.json({
@@ -261,8 +294,8 @@ app.get("/users/me", authenticateToken, async (req, res) => {
       role: user.role,
     });
   } catch (error) {
-    console.error("Kesalahan mengambil data pengguna:", error);
-    res.status(500).json({ error: "Kesalahan server internal!" });
+    console.error("Error fetching user data:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -275,34 +308,33 @@ app.put(
       const { username, password, currentPassword } = req.body;
 
       if (!username && !password && !req.file) {
-        return res
-          .status(400)
-          .json({ error: "Tidak ada data yang perlu diperbarui!" });
+        return res.status(400).json({ error: "No data to update" });
       }
 
       const user = await User.findById(req.user.userId);
 
       if (!user) {
-        return res.status(404).json({ error: "Pengguna tidak ditemukan!" });
+        return res.status(404).json({ error: "User not found" });
       }
 
       if (password) {
         if (!currentPassword) {
-          return res.status(400).json({
-            error: "Kata sandi saat ini diperlukan untuk mengubah kata sandi!",
-          });
+          return res
+            .status(400)
+            .json({ error: "Current password is required to change password" });
         }
 
         const isMatch = await bcrypt.compare(currentPassword, user.password);
         if (!isMatch) {
-          return res.status(401).json({ error: "Kata sandi saat ini salah!" });
+          return res
+            .status(401)
+            .json({ error: "Current password is incorrect" });
         }
 
         const isSamePassword = await bcrypt.compare(password, user.password);
         if (isSamePassword) {
           return res.status(400).json({
-            error:
-              "Kata sandi baru tidak boleh sama dengan kata sandi saat ini!",
+            error: "New password cannot be the same as the current password",
           });
         }
 
@@ -315,8 +347,18 @@ app.put(
         usernameChanged = true;
       }
 
+      // if (username) user.username = username;
+      // if (req.file) {
+      //   // // Gabungkan base URL dengan path file
+      //   // let baseUrl = `${req.protocol}://${req.get("host")}`;
+      //   // user.profileImage = `${baseUrl}/uploads/${req.file.filename}`;
+      //   user.profileImage = req.file.path;
+      // }
+
       if (req.file) {
         if (user.profileImage) {
+          // Ekstrak public_id dari URL Cloudinary
+          // Contoh URL: https://res.cloudinary.com/<cloud_name>/image/upload/v1234567890/uploads/abc123.jpg
           const regex = /\/uploads\/([^\.\/]+)\./;
           const match = user.profileImage.match(regex);
           if (match && match[1]) {
@@ -324,10 +366,7 @@ app.put(
             try {
               await cloudinary.uploader.destroy(publicId);
             } catch (err) {
-              console.error(
-                "Kegagalan menghapus gambar lama dari Cloudinary:",
-                err
-              );
+              console.error("Error deleting old image from Cloudinary:", err);
             }
           }
         }
@@ -344,7 +383,7 @@ app.put(
       }
 
       res.json({
-        message: "Akun berhasil diperbarui!",
+        message: "Account updated successfully",
         user: {
           id: user._id,
           username: user.username,
@@ -355,8 +394,8 @@ app.put(
         },
       });
     } catch (error) {
-      console.error("Kesalahan memperbarui akun:", error);
-      res.status(500).json({ error: "Kesalahan server internal!" });
+      console.error("Error updating account:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   }
 );
@@ -367,26 +406,27 @@ app.put("/users/:id/role", authenticateToken, async (req, res) => {
     const { role } = req.body;
 
     if (!role || !["user", "admin"].includes(role)) {
-      return res.status(400).json({
-        error: "Peran tidak valid. Nilai yang diizinkan: 'user', 'admin'",
-      });
+      return res
+        .status(400)
+        .json({ error: "Invalid role. Allowed values: 'user', 'admin'" });
     }
 
     const user = await User.findById(id);
     if (!user) {
-      return res.status(404).json({ error: "Pengguna tidak ditemukan!" });
+      return res.status(404).json({ error: "User not found" });
     }
 
     user.role = role;
     await user.save();
 
-    res.json({ message: "Peran pengguna berhasil diperbarui!", user });
+    res.json({ message: "User role updated successfully", user });
   } catch (error) {
-    console.error("Kesalahan memperbarui peran pengguna:", error);
-    res.status(500).json({ error: "Kesalahan server internal!" });
+    console.error("Error updating user role:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
+// Middleware untuk autentikasi token
 function authenticateToken(req, res, next) {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
@@ -399,6 +439,14 @@ function authenticateToken(req, res, next) {
     next();
   });
 }
+
+// // Middleware untuk otorisasi admin
+// function authorizeAdmin(req, res, next) {
+//   if (req.user.role !== "admin") {
+//     return res.status(403).json({ error: "Access denied" });
+//   }
+//   next();
+// }
 
 app.post(
   "/reports",
@@ -417,30 +465,36 @@ app.post(
       } = req.body;
 
       if (!titles || typeof titles !== "string") {
-        return res
-          .status(400)
-          .json({ error: "Judul tidak valid atau kosong!" });
+        return res.status(400).json({ error: "Invalid or missing titles" });
       }
       if (!req.file) {
-        return res.status(400).json({ error: "File gambar diperlukan!" });
+        return res.status(400).json({ error: "File is required" });
       }
       if (!lat || !lng || !diameter || !depth || !holesCount) {
-        return res
-          .status(400)
-          .json({ error: "Semua kolom harus terisi lengkap!" });
+        return res.status(400).json({ error: "Missing required fields" });
       }
 
+      // Parsing nilai numerik
       const parsedDiameter = parseFloat(diameter);
       const parsedDepth = parseFloat(depth);
       const parsedHolesCount = parseInt(holesCount, 10);
       const parsedSegmentation =
-        segmentationPercentage !== undefined &&
-        segmentationPercentage !== "" &&
-        !isNaN(parseFloat(segmentationPercentage))
+        segmentationPercentage !== undefined
           ? Math.max(0, Math.min(100, parseFloat(segmentationPercentage)))
           : 0;
 
+      // Hitung severity berdasarkan diameter dan depth
       const severity = classifySeverity(parsedDiameter, parsedDepth);
+
+      // Gabungkan base URL dengan path file
+      // let baseUrl = `${req.protocol}://${req.get("host")}`;
+      // if (baseUrl.includes("localhost")) {
+      //   baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app ";
+      // }
+      // const baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app";
+      // const fullImageUrl = req.file
+      //   ? `${baseUrl}/uploads/${req.file.filename}`
+      //   : null;
 
       const fullImageUrl = req.file ? req.file.path : null;
 
@@ -461,16 +515,22 @@ app.post(
       });
 
       await report.save();
-      res.status(201).json({ message: "Laporan telah dibuat!", report });
+      res.status(201).json({ message: "Report created", report });
     } catch (err) {
-      console.error("Kesalahan membuat laporan:", err);
-      res.status(500).json({ error: "Kesalahan server internal!" });
+      console.error("Error creating report:", err);
+      res.status(500).json({ error: "Internal server error" });
     }
   }
 );
 
 app.get("/reports", authenticateToken, async (req, res) => {
   try {
+    // let baseUrl = `${req.protocol}://${req.get("host")}`;
+    // if (baseUrl.includes("localhost")) {
+    //   baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app ";
+    // }
+    // const baseUrl = "https://parakeet-faithful-kangaroo.ngrok-free.app";
+
     const reports = await Report.find();
 
     const reportsWithFullUrl = reports.map((report) => ({
@@ -491,8 +551,8 @@ app.get("/reports", authenticateToken, async (req, res) => {
 
     res.json(reportsWithFullUrl);
   } catch (err) {
-    console.error("Laporan pengambilan kesalahan:", err);
-    res.status(500).json({ error: "Kesalahan server internal!" });
+    console.error("Error fetching reports:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -514,20 +574,25 @@ app.put(
       } = req.body;
 
       const report = await Report.findById(id);
-      if (!report)
-        return res.status(404).json({ error: "Laporan tidak ditemukan!" });
+      if (!report) return res.status(404).json({ error: "Report not found" });
 
       if (
         report.userId.toString() !== req.user.userId &&
         req.user.role !== "admin"
       ) {
-        return res.status(403).json({ error: "Akses ditolak!" });
+        return res.status(403).json({ error: "Access denied" });
       }
 
       if (titles) report.titles = titles;
       if (holesCount) report.holesCount = parseInt(holesCount, 10);
       if (lat && lng)
         report.location = { lat: parseFloat(lat), lng: parseFloat(lng) };
+
+      // if (req.file) {
+      //   // let baseUrl = `${req.protocol}://${req.get("host")}`;
+      //   // report.imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
+      //   report.imageUrl = req.file.path;
+      // }
 
       if (req.file) {
         if (report.imageUrl) {
@@ -538,10 +603,7 @@ app.put(
             try {
               await cloudinary.uploader.destroy(publicId);
             } catch (err) {
-              console.error(
-                "Kegagalan menghapus gambar lama dari Cloudinary:",
-                err
-              );
+              console.error("Error deleting old image from Cloudinary:", err);
             }
           }
         }
@@ -565,7 +627,7 @@ app.put(
 
       await report.save();
       res.json({
-        message: "Laporan berhasil diperbarui!",
+        message: "Report updated",
         report: {
           id: report._id,
           userId: report.userId,
@@ -583,8 +645,8 @@ app.put(
         },
       });
     } catch (err) {
-      console.error("Gagal memperbarui laporan:", err);
-      res.status(500).json({ error: "Kesalahan server internal!" });
+      console.error("Error updating report:", err);
+      res.status(500).json({ error: "Internal server error" });
     }
   }
 );
@@ -594,21 +656,23 @@ app.delete("/reports/:id", authenticateToken, async (req, res) => {
     const { id } = req.params;
     const report = await Report.findById(id);
 
-    if (!report)
-      return res.status(404).json({ error: "Laporan tidak ditemukan!" });
+    if (!report) return res.status(404).json({ error: "Report not found" });
 
     if (
       report.userId.toString() !== req.user.userId &&
       req.user.role !== "admin"
     ) {
-      return res.status(403).json({ error: "Akses ditolak!" });
+      return res.status(403).json({ error: "Access denied" });
     }
 
+    // // Opsional: Hapus gambar dari file system
+    // if (fs.existsSync(report.imageUrl)) fs.unlinkSync(report.imageUrl);
+
     await report.deleteOne();
-    res.json({ message: "Laporan berhasil dihapus!" });
+    res.json({ message: "Report deleted successfully" });
   } catch (err) {
-    console.error("Gagal menghapus laporan:", err);
-    res.status(500).json({ error: "Kesalahan server internal!" });
+    console.error("Error deleting report:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -619,7 +683,7 @@ app.get("/reports/:id", authenticateToken, async (req, res) => {
     const report = await Report.findById(id);
 
     if (!report) {
-      return res.status(404).json({ error: "Laporan tidak ditemukan!" });
+      return res.status(404).json({ error: "Report not found" });
     }
 
     res.json({
@@ -638,8 +702,8 @@ app.get("/reports/:id", authenticateToken, async (req, res) => {
       updatedAt: report.updatedAt,
     });
   } catch (err) {
-    console.error("Gagal mengambil data laporan:", err);
-    res.status(500).json({ error: "Kesalahan server internal!" });
+    console.error("Error fetching report:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
