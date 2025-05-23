@@ -288,7 +288,7 @@ app.put(
 
       // Lacak perubahan apa saja yang terjadi
       const changes = [];
-      
+
       if (password) {
         if (!currentPassword) {
           return res.status(400).json({
@@ -360,7 +360,6 @@ app.put(
           message = "Gambar profil berhasil diupdate!";
         }
       } else {
-        // Beberapa hal diubah
         message = "Akun berhasil diperbarui!";
       }
 
@@ -664,7 +663,17 @@ app.get("/reports/:id", authenticateToken, async (req, res) => {
   }
 });
 
-const PORT = 3000;
-app.listen(PORT, "0.0.0.0", () =>
-  console.log(`Server running on port ${PORT}`)
-);
+// const PORT = 3000;
+// app.listen(PORT, "0.0.0.0", () =>
+//   console.log(`Server running on port ${PORT}`)
+// );
+
+if (process.env.NODE_ENV !== "production") {
+  const PORT = 3000;
+  app.listen(PORT, "0.0.0.0", () =>
+    console.log(`Server running on port ${PORT}`)
+  );
+}
+
+// Penting untuk Vercel!
+module.exports = app;
