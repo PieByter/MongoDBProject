@@ -103,17 +103,19 @@ const ReportSchema = new mongoose.Schema({
 delete mongoose.connection.models["Report"];
 const Report = mongoose.model("Report", ReportSchema);
 
-function classifySeverity(diameter, depth) {
+function classifySeverity(diameter, segmentationPercentage) {
   let row = 0;
   let col = 0;
 
-  if (depth < 25) row = 1;
-  else if (depth >= 25 && depth < 50) row = 2;
-  else if (depth >= 50) row = 3;
+  // Kategorisasi berdasarkan persentase segmentasi
+  if (segmentationPercentage < 10) row = 1;
+  else if (segmentationPercentage >= 10 && segmentationPercentage < 25) row = 2;
+  else if (segmentationPercentage >= 25) row = 3;
 
-  if (diameter < 200) col = 1;
-  else if (diameter >= 200 && diameter < 450) col = 2;
-  else if (diameter >= 450) col = 3;
+  // Kategorisasi berdasarkan diameter
+  if (diameter < 20) col = 1;
+  else if (diameter >= 20 && diameter < 45) col = 2;
+  else if (diameter >= 45) col = 3;
 
   const matrix = {
     "1,1": "Rendah",
@@ -123,7 +125,7 @@ function classifySeverity(diameter, depth) {
     "2,2": "Sedang",
     "2,3": "Tinggi",
     "3,1": "Sedang",
-    "3,2": "Sedang",
+    "3,2": "Tinggi",
     "3,3": "Tinggi",
   };
 
@@ -460,7 +462,7 @@ app.post(
           ? Math.max(0, Math.min(100, parseFloat(segmentationPercentage)))
           : 0;
 
-      const severity = classifySeverity(parsedDiameter, parsedDepth);
+      const severity = classifySeverity(parsedDiameter, parsedSegmentation);
 
       const fullImageUrl = req.file ? req.file.path : null;
 
@@ -571,7 +573,10 @@ app.put(
       if (diameter || depth) {
         report.diameter = diameter ? parseFloat(diameter) : report.diameter;
         report.depth = depth ? parseFloat(depth) : report.depth;
-        report.severity = classifySeverity(report.diameter, report.depth);
+        report.severity = classifySeverity(
+          report.diameter,
+          report.segmentationPercentage
+        );
       }
 
       if (segmentationPercentage !== undefined) {
