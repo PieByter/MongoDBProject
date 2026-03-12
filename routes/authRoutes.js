@@ -2,25 +2,32 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const { upload } = require("../config/cloudinary");
+const authenticateToken = require("../middlewares/authenticateToken");
 
 const router = express.Router();
 
-router.post("/register", async (req, res) => {
+// POST /register
+router.post("/register", upload.single("profileImage"), async (req, res) => {
   try {
     const { username, email, password, confirmPassword } = req.body;
 
     if (!username || !email || !password || !confirmPassword) {
-      return res.status(400).json({ error: "Please fill in all fields" });
+      return res
+        .status(400)
+        .json({ error: "Harap isi semua kolom dengan lengkap!" });
     }
 
     if (password !== confirmPassword) {
-      return res.status(400).json({ error: "Passwords do not match" });
+      return res.status(400).json({ error: "Kata sandi tidak sesuai!" });
     }
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ error: "Email already registered" });
+      return res.status(400).json({ error: "Email sudah terdaftar!" });
     }
+
+    const profileImageUrl = req.file ? req.file.path : null;
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -28,34 +35,43 @@ router.post("/register", async (req, res) => {
       username,
       email,
       password: hashedPassword,
+      profileImage: profileImageUrl,
+      createdAt: Date.now(),
+      role: "user",
     });
 
     await user.save();
-    res.status(201).json({ message: "User registered successfully", user });
+
+    res.status(201).json({ message: "Pengguna berhasil terdaftar!", user });
   } catch (error) {
-    console.error("Registration error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Kesalahan registrasi: ", error);
+    res.status(500).json({ error: "Kesalahan server internal!" });
   }
 });
 
+// POST /login
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ error: "Please provide email and password" });
+      return res
+        .status(400)
+        .json({ error: "Harap isikan email dan kata sandi!" });
     }
 
     const user = await User.findOne({ email });
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res
+        .status(401)
+        .json({ error: "Email atau kata sandi tidak valid!" });
     }
 
     const token = jwt.sign(
       { userId: user._id, username: user.username, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: "7d" }
     );
 
     res.json({
@@ -64,12 +80,20 @@ router.post("/login", async (req, res) => {
         id: user._id,
         username: user.username,
         email: user.email,
+        profileImage: user.profileImage,
+        createdAt: user.createdAt,
+        role: user.role,
       },
     });
   } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Kesalahan login:", error);
+    res.status(500).json({ error: "Kesalahan server internal!" });
   }
+});
+
+// GET /validate-token
+router.get("/validate-token", authenticateToken, (req, res) => {
+  res.status(200).json({ message: "Token valid!" });
 });
 
 module.exports = router;

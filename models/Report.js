@@ -16,6 +16,11 @@ const ReportSchema = new mongoose.Schema({
     lat: Number,
     lng: Number,
   },
+  holesCount: {
+    type: Number,
+    required: true,
+    min: 0,
+  },
   diameter: {
     type: Number,
     required: true,
@@ -27,9 +32,19 @@ const ReportSchema = new mongoose.Schema({
     min: 0,
   },
   severity: String,
+  segmentationPercentage: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
+  },
+  updatedAt: {
+    type: Date,
+    default: null,
   },
 });
 

@@ -3,11 +3,11 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 
-const authRoutes = require("./routes/authRoutes");
-const reportRoutes = require("./routes/reportRoutes");
-const userRoutes = require("./routes/userRoutes");
-const authenticateToken = require("./middlewares/authenticateToken");
-const authorizeAdmin = require("./middlewares/authorizeAdmin");
+const authRoutes = require("../routes/authRoutes");
+const reportRoutes = require("../routes/reportRoutes");
+const userRoutes = require("../routes/userRoutes");
+const authenticateToken = require("../middlewares/authenticateToken");
+const authorizeAdmin = require("../middlewares/authorizeAdmin");
 
 const app = express();
 app.use(cors());

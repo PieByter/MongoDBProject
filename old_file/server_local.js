@@ -7,7 +7,7 @@ const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const { create } = require("./models/Report");
+const { create } = require("../models/Report");
 const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const multer = require("multer");
@@ -146,7 +146,7 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     cb(
       null,
-      file.fieldname + "-" + Date.now() + path.extname(file.originalname)
+      file.fieldname + "-" + Date.now() + path.extname(file.originalname),
     );
   },
 });
@@ -218,7 +218,7 @@ app.post("/login", async (req, res) => {
     const token = jwt.sign(
       { userId: user._id, username: user.username, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     res.json({
@@ -338,7 +338,7 @@ app.put(
           const oldPath = path.join(
             __dirname,
             "uploads",
-            path.basename(user.profileImage)
+            path.basename(user.profileImage),
           );
           if (fs.existsSync(oldPath)) {
             try {
@@ -369,7 +369,7 @@ app.put(
       console.error("Error updating account:", error);
       res.status(500).json({ error: "Internal server error" });
     }
-  }
+  },
 );
 
 app.put("/users/:id/role", authenticateToken, async (req, res) => {
@@ -476,7 +476,7 @@ app.post(
       console.error("Error creating report:", err);
       res.status(500).json({ error: "Internal server error" });
     }
-  }
+  },
 );
 
 app.get("/reports", authenticateToken, async (req, res) => {
@@ -541,7 +541,7 @@ app.put(
           const oldPath = path.join(
             __dirname,
             "uploads",
-            path.basename(report.imageUrl)
+            path.basename(report.imageUrl),
           );
           if (fs.existsSync(oldPath)) {
             try {
@@ -585,7 +585,7 @@ app.put(
       console.error("Error updating report:", err);
       res.status(500).json({ error: "Internal server error" });
     }
-  }
+  },
 );
 
 app.delete("/reports/:id", authenticateToken, async (req, res) => {
@@ -645,5 +645,5 @@ app.get("/reports/:id", authenticateToken, async (req, res) => {
 
 const PORT = 3000;
 app.listen(PORT, "0.0.0.0", () =>
-  console.log(`Server running on port ${PORT}`)
+  console.log(`Server running on port ${PORT}`),
 );
