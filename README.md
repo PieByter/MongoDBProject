@@ -4,7 +4,7 @@ REST API backend untuk aplikasi **LaporBang** — platform pelaporan lubang jala
 
 ## 🚀 Tech Stack
 
-- **Runtime**: Node.js 18.x
+- **Runtime**: Node.js 22.x
 - **Framework**: Express 5
 - **Database**: MongoDB Atlas (Mongoose)
 - **Authentication**: JWT (jsonwebtoken) + bcryptjs

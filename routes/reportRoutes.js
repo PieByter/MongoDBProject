@@ -1,10 +1,17 @@
 const express = require("express");
 const Report = require("../models/Report");
 const authenticateToken = require("../middlewares/authenticateToken");
-const { upload, cloudinary } = require("../config/cloudinary");
+const { upload, cloudinary, uploadToCloudinary } = require("../config/cloudinary");
 const classifySeverity = require("../utils/classifySeverity");
 
 const router = express.Router();
+
+// Helper untuk extract public_id dari cloudinary URL
+function getPublicId(imageUrl) {
+  const regex = /\/uploads\/([^\./]+)\./;
+  const match = imageUrl.match(regex);
+  return match && match[1] ? `uploads/${match[1]}` : null;
+}
 
 // POST /reports
 router.post(
@@ -24,17 +31,13 @@ router.post(
       } = req.body;
 
       if (!titles || typeof titles !== "string") {
-        return res
-          .status(400)
-          .json({ error: "Judul tidak valid atau kosong!" });
+        return res.status(400).json({ error: "Judul tidak valid atau kosong!" });
       }
       if (!req.file) {
         return res.status(400).json({ error: "File gambar diperlukan!" });
       }
       if (!lat || !lng || !diameter || !depth || !holesCount) {
-        return res
-          .status(400)
-          .json({ error: "Semua kolom harus terisi lengkap!" });
+        return res.status(400).json({ error: "Semua kolom harus terisi lengkap!" });
       }
 
       const parsedDiameter = parseFloat(diameter);
@@ -49,7 +52,9 @@ router.post(
 
       const severity = classifySeverity(parsedDiameter, parsedSegmentation);
 
-      const fullImageUrl = req.file ? req.file.path : null;
+      // Upload ke Cloudinary dari buffer
+      const uploadResult = await uploadToCloudinary(req.file.buffer);
+      const fullImageUrl = uploadResult.secure_url;
 
       const report = new Report({
         id: req.body.id,
@@ -80,7 +85,6 @@ router.post(
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const reports = await Report.find();
-
     const reportsWithFullUrl = reports.map((report) => ({
       id: report._id,
       userId: report.userId,
@@ -96,7 +100,6 @@ router.get("/", authenticateToken, async (req, res) => {
       createdAt: report.createdAt,
       updatedAt: report.updatedAt,
     }));
-
     res.json(reportsWithFullUrl);
   } catch (err) {
     console.error("Laporan pengambilan kesalahan:", err);
@@ -108,13 +111,10 @@ router.get("/", authenticateToken, async (req, res) => {
 router.get("/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-
     const report = await Report.findById(id);
-
     if (!report) {
       return res.status(404).json({ error: "Laporan tidak ditemukan!" });
     }
-
     res.json({
       id: report._id,
       userId: report.userId,
@@ -144,19 +144,12 @@ router.put(
   async (req, res) => {
     try {
       const { id } = req.params;
-      const {
-        titles,
-        lat,
-        lng,
-        holesCount,
-        diameter,
-        depth,
-        segmentationPercentage,
-      } = req.body;
+      const { titles, lat, lng, holesCount, diameter, depth, segmentationPercentage } = req.body;
 
       const report = await Report.findById(id);
-      if (!report)
+      if (!report) {
         return res.status(404).json({ error: "Laporan tidak ditemukan!" });
+      }
 
       if (
         report.userId.toString() !== req.user.userId &&
@@ -167,35 +160,27 @@ router.put(
 
       if (titles) report.titles = titles;
       if (holesCount) report.holesCount = parseInt(holesCount, 10);
-      if (lat && lng)
-        report.location = { lat: parseFloat(lat), lng: parseFloat(lng) };
+      if (lat && lng) report.location = { lat: parseFloat(lat), lng: parseFloat(lng) };
 
       if (req.file) {
         if (report.imageUrl) {
-          const regex = /\/uploads\/([^\.\\/]+)\./;
-          const match = report.imageUrl.match(regex);
-          if (match && match[1]) {
-            const publicId = `uploads/${match[1]}`;
+          const publicId = getPublicId(report.imageUrl);
+          if (publicId) {
             try {
               await cloudinary.uploader.destroy(publicId);
             } catch (err) {
-              console.error(
-                "Kegagalan menghapus gambar lama dari Cloudinary:",
-                err
-              );
+              console.error("Kegagalan menghapus gambar lama dari Cloudinary:", err);
             }
           }
         }
-        report.imageUrl = req.file.path;
+        const uploadResult = await uploadToCloudinary(req.file.buffer);
+        report.imageUrl = uploadResult.secure_url;
       }
 
       if (diameter || depth) {
         report.diameter = diameter ? parseFloat(diameter) : report.diameter;
         report.depth = depth ? parseFloat(depth) : report.depth;
-        report.severity = classifySeverity(
-          report.diameter,
-          report.segmentationPercentage
-        );
+        report.severity = classifySeverity(report.diameter, report.segmentationPercentage);
       }
 
       if (segmentationPercentage !== undefined) {
@@ -206,8 +191,8 @@ router.put(
       }
 
       report.updatedAt = Date.now();
-
       await report.save();
+
       res.json({
         message: "Laporan berhasil diperbarui!",
         report: {
@@ -239,8 +224,9 @@ router.delete("/:id", authenticateToken, async (req, res) => {
     const { id } = req.params;
     const report = await Report.findById(id);
 
-    if (!report)
+    if (!report) {
       return res.status(404).json({ error: "Laporan tidak ditemukan!" });
+    }
 
     if (
       report.userId.toString() !== req.user.userId &&

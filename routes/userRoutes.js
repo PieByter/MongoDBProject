@@ -3,9 +3,16 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const Report = require("../models/Report");
 const authenticateToken = require("../middlewares/authenticateToken");
-const { upload, cloudinary } = require("../config/cloudinary");
+const { upload, cloudinary, uploadToCloudinary } = require("../config/cloudinary");
 
 const router = express.Router();
+
+// Helper untuk extract public_id dari cloudinary URL
+function getPublicId(imageUrl) {
+  const regex = /\/uploads\/([^\./]+)\./;
+  const match = imageUrl.match(regex);
+  return match && match[1] ? `uploads/${match[1]}` : null;
+}
 
 // GET /users
 router.get("/", async (req, res) => {
@@ -22,11 +29,9 @@ router.get("/", async (req, res) => {
 router.get("/me", authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
-
     if (!user) {
       return res.status(404).json({ error: "Pengguna tidak ditemukan!" });
     }
-
     res.json({
       id: user._id,
       username: user.username,
@@ -57,12 +62,10 @@ router.put(
       }
 
       const user = await User.findById(req.user.userId);
-
       if (!user) {
         return res.status(404).json({ error: "Pengguna tidak ditemukan!" });
       }
 
-      // Lacak perubahan apa saja yang terjadi
       const changes = [];
 
       if (password) {
@@ -71,19 +74,16 @@ router.put(
             error: "Kata sandi saat ini diperlukan untuk mengubah kata sandi!",
           });
         }
-
         const isMatch = await bcrypt.compare(currentPassword, user.password);
         if (!isMatch) {
           return res.status(401).json({ error: "Kata sandi saat ini salah!" });
         }
-
         const isSamePassword = await bcrypt.compare(password, user.password);
         if (isSamePassword) {
           return res.status(400).json({
             error: "Password baru tidak boleh sama dengan yang lama!",
           });
         }
-
         user.password = await bcrypt.hash(password, 10);
         changes.push("password");
       }
@@ -97,21 +97,17 @@ router.put(
 
       if (req.file) {
         if (user.profileImage) {
-          const regex = /\/uploads\/([^\.\\/]+)\./;
-          const match = user.profileImage.match(regex);
-          if (match && match[1]) {
-            const publicId = `uploads/${match[1]}`;
+          const publicId = getPublicId(user.profileImage);
+          if (publicId) {
             try {
               await cloudinary.uploader.destroy(publicId);
             } catch (err) {
-              console.error(
-                "Kegagalan menghapus gambar lama dari Cloudinary:",
-                err
-              );
+              console.error("Kegagalan menghapus gambar lama dari Cloudinary:", err);
             }
           }
         }
-        user.profileImage = req.file.path;
+        const result = await uploadToCloudinary(req.file.buffer);
+        user.profileImage = result.secure_url;
         changes.push("profileImage");
       }
 
@@ -124,17 +120,11 @@ router.put(
         );
       }
 
-      // Generate pesan berdasarkan perubahan yang terjadi
       let message = "";
       if (changes.length === 1) {
-        // Hanya satu hal yang diubah
-        if (changes[0] === "password") {
-          message = "Password berhasil diperbaharui!";
-        } else if (changes[0] === "username") {
-          message = "Username berhasil diupdate!";
-        } else if (changes[0] === "profileImage") {
-          message = "Gambar profil berhasil diupdate!";
-        }
+        if (changes[0] === "password") message = "Password berhasil diperbaharui!";
+        else if (changes[0] === "username") message = "Username berhasil diupdate!";
+        else if (changes[0] === "profileImage") message = "Gambar profil berhasil diupdate!";
       } else {
         message = "Akun berhasil diperbarui!";
       }
@@ -188,13 +178,10 @@ router.put("/:id/role", authenticateToken, async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-
     const user = await User.findByIdAndDelete(id);
-
     if (!user) {
       return res.status(404).json({ error: "Pengguna tidak ditemukan!" });
     }
-
     res.json({ message: "Akun berhasil dihapus!" });
   } catch (error) {
     console.error("Kesalahan menghapus akun:", error);

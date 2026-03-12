@@ -2,7 +2,7 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
-const { upload } = require("../config/cloudinary");
+const { upload, uploadToCloudinary } = require("../config/cloudinary");
 const authenticateToken = require("../middlewares/authenticateToken");
 
 const router = express.Router();
@@ -27,7 +27,11 @@ router.post("/register", upload.single("profileImage"), async (req, res) => {
       return res.status(400).json({ error: "Email sudah terdaftar!" });
     }
 
-    const profileImageUrl = req.file ? req.file.path : null;
+    let profileImageUrl = null;
+    if (req.file) {
+      const result = await uploadToCloudinary(req.file.buffer);
+      profileImageUrl = result.secure_url;
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
